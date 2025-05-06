@@ -8,23 +8,40 @@ let musicStarted = false;
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
+// Setup audio DOM-based for music, new Audio for SFX
 const audio = {
   click: new Audio('assets/click.wav'),
   shoot: new Audio('assets/shoot.wav'),
   death: new Audio('assets/death.wav'),
   win: new Audio('assets/win.wav'),
-  bg: document.getElementById('bg-music')
+  bg: new Audio('assets/bg-music.mp3') // Fallback to Audio object if element failed
 };
 
-// Unlock browser audio autoplay and trigger music
-window.addEventListener('click', () => {
-  playMusic();
+audio.bg.loop = true;
+
+function unlockAudio() {
   for (let key in audio) {
-    if (audio[key] instanceof HTMLAudioElement) {
-      audio[key].play().then(() => audio[key].pause()).catch(() => {});
+    const sound = audio[key];
+    if (sound instanceof HTMLAudioElement) {
+      sound.play().then(() => sound.pause()).catch(() => {});
     }
   }
-}, { once: true });
+  window.removeEventListener('pointerdown', unlockAudio);
+}
+
+window.addEventListener('pointerdown', unlockAudio);
+
+function playMusic() {
+  if (musicStarted || !audio.bg) return;
+  audio.bg.volume = 0.4;
+  audio.bg.loop = true;
+  audio.bg.play().then(() => {
+    musicStarted = true;
+    console.log("🎶 Music started");
+  }).catch(err => {
+    console.warn("❌ Music failed to play:", err);
+  });
+}
 
 function playSound(name) {
   const sound = audio[name];
@@ -36,40 +53,26 @@ function playSound(name) {
   });
 }
 
-function playMusic() {
-  if (musicStarted) return;
-  const music = audio.bg;
-  if (!music) return;
-  music.volume = 0.4;
-  music.loop = true;
-  music.play()
-    .then(() => {
-      musicStarted = true;
-    })
-    .catch(err => {
-      console.warn("Background music failed to play:", err);
-    });
-}
-
-// Add mute toggle functionality
-const muteBtn = document.getElementById('mute-toggle');
-if (muteBtn) {
-  muteBtn.addEventListener('click', () => {
-    const music = audio.bg;
-    music.muted = !music.muted;
-    muteBtn.textContent = music.muted ? '🔇 Unmute' : '🔊 Mute';
-  });
-}
-
 function updateBudgetTotal() {
+  const totalBudget = 500;
   const food = +document.getElementById('food').value;
   const ammo = +document.getElementById('ammo').value;
   const oxen = +document.getElementById('oxen').value;
   const parts = +document.getElementById('parts').value;
   const meds = +document.getElementById('meds').value;
   const cost = food * 1 + ammo * 2 + oxen * 40 + parts * 20 + meds * 25;
+  console.log(`🧾 Budget spent: $${cost} out of $${totalBudget}`);
   const budgetTotal = document.getElementById('budget-total');
-  budgetTotal.textContent = `Total: $${cost}`;
+  budgetTotal.textContent = `Total: $${cost} / $${totalBudget}`;
+  if (cost < 300) {
+    budgetTotal.style.color = '#00FFAA'; // green
+  } else if (cost < 450) {
+    budgetTotal.style.color = 'gold'; // yellow
+  } else if (cost <= 500) {
+    budgetTotal.style.color = 'orange';
+  } else {
+    budgetTotal.style.color = 'red';
+  }
   if (cost > 500) {
     budgetTotal.style.color = 'red';
     document.getElementById('budget-warning').style.display = 'block';
@@ -79,17 +82,12 @@ function updateBudgetTotal() {
   }
 }
 
-// [... existing game logic continues unchanged below this point ...] 
-// Placeholders indicate this code block resumes normal operations.
-
-
-// [... existing logic unchanged below this point ...]
-// ✅ This addition ensures audio will work after first click
-// ✅ Ensures shoot/death sounds always reset and retry
-// ✅ Background music now plays properly after interaction
-
-
 window.addEventListener('load', () => {
+  const locationInfo = document.createElement('div');
+  locationInfo.id = 'location-info';
+  locationInfo.style.color = '#00FFAA';
+  locationInfo.style.margin = '10px';
+  document.getElementById('ui')?.appendChild(locationInfo);
   const startBtn = document.getElementById('start-button');
   if (startBtn) startBtn.addEventListener('click', startGame);
   ['food', 'ammo', 'oxen', 'parts', 'meds'].forEach(id => {
@@ -97,6 +95,21 @@ window.addEventListener('load', () => {
     if (input) input.addEventListener('input', updateBudgetTotal);
   });
   updateBudgetTotal();
+
+  const muteBtn = document.getElementById('mute-toggle');
+  if (muteBtn) {
+    muteBtn.addEventListener('click', () => {
+      audio.bg.muted = !audio.bg.muted;
+      muteBtn.textContent = audio.bg.muted ? '🔇 Unmute' : '🔊 Mute';
+    });
+  }
+
+  const huntBtn = document.getElementById('hunt-button');
+  if (huntBtn) {
+    huntBtn.addEventListener('click', () => {
+      if (typeof startHunting === 'function') startHunting();
+    });
+  }
 
   const saved = localStorage.getItem('pixelTrailState');
   if (saved && confirm("Resume previous game?")) {
@@ -109,12 +122,78 @@ window.addEventListener('load', () => {
     ui.style.alignItems = 'center';
     gameLoop();
     updatePartyStatus();
-    document.getElementById('status').textContent = `Welcome back, ${state.player}. Day ${state.day}`;playMusic();
-
+    updateLocationInfo();
+    document.getElementById('status').textContent = `Welcome back, ${state.player}. Day ${state.day}`;
+    playMusic();
   } else {
     localStorage.removeItem('pixelTrailState');
   }
 });
+
+function updateLocationInfo() {
+  const locationBox = document.getElementById('location-info');
+  if (!locationBox || !state) return;
+  const miles = state.miles;
+  let landmark = "Wilderness";
+  if (miles > 1800) landmark = "Almost Oregon!";
+  else if (miles > 1500) landmark = "Rocky Mountains";
+  else if (miles > 1000) landmark = "Great Plains";
+  else if (miles > 500) landmark = "Missouri River";
+  else if (miles > 100) landmark = "The Frontier";
+  locationBox.textContent = `📍 Location: ${landmark} (${miles} mi)`;
+}
+
+// Add funeral pause function
+function pauseForFuneral(name) {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      alert(`🪦 Funeral held for ${name}. A moment of silence.`);
+      resolve();
+    }, 1000);
+  });
+}
+
+// Modify travelDay logic
+const originalTravelDay = window.travelDay;
+window.travelDay = async function travelDay() {
+  const riverChance = 0.15;
+  state.onRiver = Math.random() < riverChance;
+  draw();
+  if (state.onRiver) {
+    playSound('click');
+    setTimeout(async () => {
+      const riverDepth = Math.random();
+      if (riverDepth < 0.3) {
+        alert("🛶 You approached a river. It’s shallow, so you easily crossed.");
+        state.riversCrossed++;
+      } else {
+        const choice = prompt("🌊 A deep river blocks your path. Do you 'ford', 'float', or 'build raft'?");
+        const roll = Math.random();
+        if (choice === 'ford' && roll < 0.4) {
+          alert("💥 The current was strong. You lost some supplies.");
+          state.supplies.food = Math.max(0, state.supplies.food - 30);
+        } else if (choice === 'float' && roll < 0.6) {
+          const i = Math.floor(Math.random() * state.partyHealth.length);
+          state.partyHealth[i] = 0;
+          const name = i === 0 ? state.player : state.companions[i - 1];
+          playSound('death');
+          alert(`🌊 The river tipped your wagon! ${name} drowned.`);
+          await pauseForFuneral(name);
+        } else if (choice === 'build raft' && state.supplies.parts > 0) {
+          alert("🪵 You built a raft and crossed safely, using 1 spare part.");
+          state.supplies.parts--;
+        } else {
+          alert("⚠️ Failed crossing. You lost food.");
+          state.supplies.food = Math.max(0, state.supplies.food - 20);
+        }
+      }
+      updatePartyStatus();
+      localStorage.setItem('pixelTrailState', JSON.stringify(state));
+    }, 500);
+    return;
+  }
+  originalTravelDay();
+};
 
 function startGame() {
   const player = document.getElementById('player-name').value;
