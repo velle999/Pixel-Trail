@@ -167,7 +167,7 @@
         window.addEventListener(event, tryPlayMusic, { once: true });
       });
 
-       if (muteToggle) {
+      if (muteToggle) {
         muteToggle.addEventListener('click', () => {
           bgMusic.muted = !bgMusic.muted;
           muteToggle.textContent = bgMusic.muted ? '🔇 Unmute' : '🔊 Mute';
