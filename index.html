@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Trail</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Courier New', monospace;
+      background: black;
+      color: #00FFAA;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      text-align: center;
+    }
+
+    #setup-screen, #ui, #party-status {
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #00FFAA;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px auto;
+      width: 90%;
+      max-width: 480px;
+    }
+
+    label, input {
+      display: block;
+      margin: 8px auto;
+      font-size: 14px;
+    }
+
+    button {
+      margin: 10px;
+      padding: 10px 20px;
+      background: #00FFAA;
+      color: black;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+    }
+
+    canvas {
+      display: block;
+      background: #111;
+      margin: 20px auto;
+      image-rendering: pixelated;
+      border: 2px solid #00FFAA;
+    }
+
+    pre {
+      font-family: monospace;
+      white-space: pre;
+      margin: 10px auto;
+      max-width: 100%;
+    }
+
+    #hunt-wrapper {
+      position: fixed;
+      top: 0;
+      left: 0;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      width: 100vw;
+      height: 100vh;
+      background: black;
+      z-index: 999;
+    }
+
+    #hunt-canvas {
+      border: 2px solid #00FFAA;
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <!-- Background Music -->
+    <audio id="bg-music" src="assets/background.mp3" preload="auto"></audio>
+
+    <!-- Setup Screen -->
+    <section id="setup-screen">
+      <h2>Prepare for Pixel Trail</h2>
+      <form id="setup-form">
+        <label>Your name:
+          <input type="text" id="player-name" required />
+        </label>
+        <label>Companion 1: <input type="text" class="companion" /></label>
+        <label>Companion 2: <input type="text" class="companion" /></label>
+        <label>Companion 3: <input type="text" class="companion" /></label>
+        <label>Companion 4: <input type="text" class="companion" /></label>
+
+        <div id="budget-total">Total: $0</div>
+
+        <label>Food ($1/lb): <input type="number" id="food" value="100" min="0" /></label>
+        <label>Ammo ($2/box): <input type="number" id="ammo" value="20" min="0" /></label>
+        <label>Oxen ($40 each): <input type="number" id="oxen" value="2" min="0" /></label>
+        <label>Spare Parts ($20 each): <input type="number" id="parts" value="3" min="0" /></label>
+        <label>Medicine ($25 each): <input type="number" id="meds" value="2" min="0" /></label>
+
+        <button id="start-button" type="button">Begin Journey</button>
+        <div id="budget-warning" style="color: red; display: none;">You went over budget!</div>
+      </form>
+    </section>
+
+    <!-- Game UI -->
+    <section id="ui" style="display:none;">
+      <div id="status">Loading wagon...</div>
+      <button onclick="travelDay()">Continue</button>
+      <button onclick="startHunting()">Go Hunting</button>
+      <button id="mute-toggle">🔊 Mute</button>
+    </section>
+
+    <!-- Party Stats -->
+    <section id="party-status" style="display:none;"></section>
+
+    <!-- Main Canvas -->
+    <canvas id="game" width="640" height="400"></canvas>
+
+    <!-- Hunting Canvas -->
+    <div id="hunt-wrapper">
+      <canvas id="hunt-canvas" width="640" height="400"></canvas>
+    </div>
+
+    <!-- ASCII Art -->
+    <pre id="ascii-background">
+........................................................................................
+....     ....     ....     ....     ....     ....     ....     ....     ....     ....
+........................................................................................
+    </pre>
+
+    <pre id="ascii-wagon">
+      ____
+ ___/[] []\___
+|_   ___   _|
+  O       O
+    </pre>
+  </main>
+
+  <!-- Game Logic -->
+  <script src="pixel-trail.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const bgMusic = document.getElementById('bg-music');
+      const muteToggle = document.getElementById('mute-toggle');
+      const startButton = document.getElementById('start-button');
+      let musicStarted = false;
+
+      function tryPlayMusic() {
+        if (!bgMusic || musicStarted) return;
+        bgMusic.volume = 0.4;
+        bgMusic.loop = true;
+        bgMusic.play().then(() => {
+          musicStarted = true;
+        }).catch(err => console.warn('Autoplay blocked:', err));
+      }
+
+      ['click', 'touchstart', 'keydown'].forEach(event => {
+        window.addEventListener(event, tryPlayMusic, { once: true });
+      });
+
+      if (muteToggle) {
+        muteToggle.addEventListener('click', () => {
+          bgMusic.muted = !bgMusic.muted;
+          muteToggle.textContent = bgMusic.muted ? '🔇 Unmute' : '🔊 Mute';
+        });
+      }
+
+      if (startButton) {
+        startButton.addEventListener('click', () => {
+          tryPlayMusic();
+          if (typeof startGame === 'function') {
+            startGame();
+          } else {
+            console.warn('startGame is not defined');
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>

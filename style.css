@@ -1,0 +1,97 @@
+/* === Keyframes === */
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  45% { opacity: 0.7; }
+  50% { opacity: 0.3; }
+  55% { opacity: 0.6; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -500px 0; }
+  100% { background-position: 500px 0; }
+}
+
+@keyframes bg-flicker {
+  0%, 100% { color: #004400; }
+  50% { color: #006600; }
+}
+
+@keyframes bg-scroll {
+  0% { background-position: 0 0; }
+  100% { background-position: 100% 0; }
+}
+
+
+/* === Element Animations === */
+#setup-screen {
+  animation: fadeIn 1s ease-in-out;
+}
+
+h2 {
+  animation: flicker 1.5s infinite;
+  position: relative;
+}
+
+h2::after {
+  content: '';
+  display: block;
+  height: 2px;
+  width: 100%;
+  margin-top: 5px;
+  background: linear-gradient(90deg, transparent, #00FFAA, transparent);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite linear;
+}
+
+#status {
+  animation: flicker 2s infinite;
+}
+
+canvas#game {
+  animation: fadeIn 1s ease-in-out;
+}
+
+#ui button:hover {
+  animation: bounce 0.5s infinite;
+}
+
+#ascii-background {
+  animation: bg-scroll 10s linear infinite, bg-flicker 2s infinite;
+  background: linear-gradient(90deg, #001100, #003300, #001100);
+  background-size: 200% 100%;
+  white-space: pre-wrap;
+}
+#hunt-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  z-index: 999; /* ensures it's above other elements */
+}
+
+#hunt-canvas {
+  image-rendering: pixelated;
+  border: 2px solid #00FFAA;
+}
+#mute-toggle {
+  background: #111;
+  color: #00FFAA;
+  border: 1px solid #00FFAA;
+  font-size: 14px;
+  margin-top: 10px;
+}
