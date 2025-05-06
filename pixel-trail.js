@@ -65,21 +65,17 @@ function updateBudgetTotal() {
   const budgetTotal = document.getElementById('budget-total');
   budgetTotal.textContent = `Total: $${cost} / $${totalBudget}`;
   if (cost < 300) {
-    budgetTotal.style.color = '#00FFAA'; // green
+    budgetTotal.style.color = '#00FFAA';
   } else if (cost < 450) {
-    budgetTotal.style.color = 'gold'; // yellow
+    budgetTotal.style.color = 'gold';
   } else if (cost <= 500) {
     budgetTotal.style.color = 'orange';
   } else {
     budgetTotal.style.color = 'red';
-  }
-  if (cost > 500) {
-    budgetTotal.style.color = 'red';
     document.getElementById('budget-warning').style.display = 'block';
-  } else {
-    budgetTotal.style.color = '#00FFAA';
-    document.getElementById('budget-warning').style.display = 'none';
+    return;
   }
+  document.getElementById('budget-warning').style.display = 'none';
 }
 
 window.addEventListener('load', () => {
@@ -143,7 +139,6 @@ function updateLocationInfo() {
   locationBox.textContent = `📍 Location: ${landmark} (${miles} mi)`;
 }
 
-// Add funeral pause function
 function pauseForFuneral(name) {
   return new Promise(resolve => {
     setTimeout(() => {
@@ -153,8 +148,6 @@ function pauseForFuneral(name) {
   });
 }
 
-// Modify travelDay logic
-const originalTravelDay = window.travelDay;
 window.travelDay = async function travelDay() {
   const riverChance = 0.15;
   state.onRiver = Math.random() < riverChance;
@@ -167,7 +160,7 @@ window.travelDay = async function travelDay() {
         alert("🛶 You approached a river. It’s shallow, so you easily crossed.");
         state.riversCrossed++;
       } else {
-        const choice = prompt("🌊 A deep river blocks your path. Do you 'ford', 'float', or 'build raft'?");
+        const choice = prompt("🌊 A deep river blocks your path. Do you 'ford', 'float', 'build raft', or 'hire guide'?");
         const roll = Math.random();
         if (choice === 'ford' && roll < 0.4) {
           alert("💥 The current was strong. You lost some supplies.");
@@ -182,17 +175,51 @@ window.travelDay = async function travelDay() {
         } else if (choice === 'build raft' && state.supplies.parts > 0) {
           alert("🪵 You built a raft and crossed safely, using 1 spare part.");
           state.supplies.parts--;
+        } else if (choice === 'hire guide') {
+          if (state.supplies.food >= 10) {
+            state.supplies.food -= 10;
+            alert("🧭 A local native guides you across safely for 10 lbs of food.");
+            state.riversCrossed++;
+          } else {
+            alert("⚠️ You don't have enough food to pay the guide. Must try another way.");
+          }
         } else {
           alert("⚠️ Failed crossing. You lost food.");
           state.supplies.food = Math.max(0, state.supplies.food - 20);
         }
       }
       updatePartyStatus();
+      updateLocationInfo();
       localStorage.setItem('pixelTrailState', JSON.stringify(state));
     }, 500);
     return;
   }
-  originalTravelDay();
+
+  const mouths = 1 + state.companions.length;
+  const foodConsumed = mouths * 2;
+  const dailyMiles = Math.floor(10 + Math.random() * (state.supplies.oxen * 5));
+  state.day++;
+  state.miles += dailyMiles;
+  state.supplies.food = Math.max(0, state.supplies.food - foodConsumed);
+  if (state.supplies.food <= 0 || state.supplies.oxen <= 0 || state.partyHealth.every(h => h <= 0)) {
+    playSound('death');
+    alert("💀 Your journey has ended in tragedy.");
+    localStorage.removeItem('pixelTrailState');
+    location.reload();
+    return;
+  }
+  if (state.miles >= 2000) {
+    playSound('win');
+    alert("🎉 You made it to Oregon!");
+    localStorage.removeItem('pixelTrailState');
+    location.reload();
+    return;
+  }
+  if (typeof triggerRandomEvent === 'function' && Math.random() < 0.1) triggerRandomEvent();
+  document.getElementById('status').textContent = `Day ${state.day}: Traveled ${dailyMiles} miles. Total: ${state.miles} mi. Food: ${state.supplies.food} lbs`;
+  updatePartyStatus();
+  updateLocationInfo();
+  localStorage.setItem('pixelTrailState', JSON.stringify(state));
 };
 
 function startGame() {
@@ -346,66 +373,6 @@ function update() {
   updateClouds();
   updateWeather();
 }
-
-window.travelDay = function travelDay() {
-  const riverChance = 0.15;
-  state.onRiver = Math.random() < riverChance;
-  draw();
-  if (state.onRiver) {
-    playSound('click');
-    setTimeout(() => {
-      const riverDepth = Math.random();
-      if (riverDepth < 0.3) {
-        alert("🛶 You approached a river. It’s shallow, so you easily crossed.");
-        state.riversCrossed++;
-      } else {
-        const choice = prompt("🌊 A deep river blocks your path. Do you 'ford', 'float', or 'build raft'?");
-        const roll = Math.random();
-        if (choice === 'ford' && roll < 0.4) {
-          alert("💥 The current was strong. You lost some supplies.");
-          state.supplies.food = Math.max(0, state.supplies.food - 30);
-        } else if (choice === 'float' && roll < 0.6) {
-          alert("🌊 The river tipped your wagon! A party member drowned.");
-          const i = Math.floor(Math.random() * state.partyHealth.length);
-          state.partyHealth[i] = 0;
-        } else if (choice === 'build raft' && state.supplies.parts > 0) {
-          alert("🪵 You built a raft and crossed safely, using 1 spare part.");
-          state.supplies.parts--;
-        } else {
-          alert("⚠️ Failed crossing. You lost food.");
-          state.supplies.food = Math.max(0, state.supplies.food - 20);
-        }
-      }
-      updatePartyStatus();
-      localStorage.setItem('pixelTrailState', JSON.stringify(state));
-    }, 500);
-    return;
-  }
-  const mouths = 1 + state.companions.length;
-  const foodConsumed = mouths * 2;
-  const dailyMiles = Math.floor(10 + Math.random() * (state.supplies.oxen * 5));
-  state.day++;
-  state.miles += dailyMiles;
-  state.supplies.food = Math.max(0, state.supplies.food - foodConsumed);
-  if (state.supplies.food <= 0 || state.supplies.oxen <= 0 || state.partyHealth.every(h => h <= 0)) {
-    playSound('death');
-    alert("💀 Your journey has ended in tragedy.");
-    localStorage.removeItem('pixelTrailState');
-    location.reload();
-    return;
-  }
-  if (Math.random() < 0.1) triggerRandomEvent();
-  if (state.miles >= 2000) {
-    playSound('win');
-    alert("🎉 You made it to Oregon!");
-    localStorage.removeItem('pixelTrailState');
-    location.reload();
-    return;
-  }
-  document.getElementById('status').textContent = `Day ${state.day}: Traveled ${dailyMiles} miles. Total: ${state.miles} mi. Food: ${state.supplies.food} lbs`;
-  updatePartyStatus();
-  localStorage.setItem('pixelTrailState', JSON.stringify(state));
-};
 
 // === HUNTING MODE ===
 window.startHunting = function startHunting() {
