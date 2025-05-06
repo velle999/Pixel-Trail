@@ -260,19 +260,23 @@ function startGame() {
 
 function updatePartyStatus() {
   const { player, companions, supplies, partyHealth, riversCrossed } = state;
-  let html = `<strong>Party:</strong><br/>`;
-  html += `🧍 ${player} - ${partyHealth[0] > 0 ? 'Healthy' : 'Dead'} (${partyHealth[0]}%)<br/>`;
+  let html = `<strong>🛻 Wagon Party</strong><br/>`;
+  html += `🧍 ${player} - ${partyHealth[0] > 0 ? partyHealth[0] + '%' : '💀 Dead'}<br/>`;
   companions.forEach((name, idx) => {
     const hp = partyHealth[idx + 1] ?? 100;
-    html += `👤 ${name} - ${hp > 0 ? 'Healthy' : 'Dead'} (${hp}%)<br/>`;
+    html += `👤 ${name} - ${hp > 0 ? hp + '%' : '💀 Dead'}<br/>`;
   });
-  html += `<br/><strong>Rivers Crossed:</strong> ${riversCrossed || 0}<br/><br/><strong>Supplies:</strong><br/>`;
+  html += `<br/><strong>🎒 Supplies</strong><br/>`;
   html += `🍖 Food: ${supplies.food} lbs<br/>`;
-  html += `🔫 Ammo: ${supplies.ammo} boxes<br/>`;
+  html += `🔫 Ammo: ${supplies.ammo}<br/>`;
   html += `🐂 Oxen: ${supplies.oxen}<br/>`;
   html += `🛠️ Parts: ${supplies.parts}<br/>`;
   html += `💊 Meds: ${supplies.meds}<br/>`;
-  document.getElementById('party-status').innerHTML = html;
+  html += `<br/>🌊 Rivers Crossed: ${riversCrossed || 0}`;
+
+  const panel = document.getElementById('party-status');
+  panel.innerHTML = html;
+  panel.style.display = 'block';
 }
 
 function gameLoop() {
@@ -386,32 +390,93 @@ window.startHunting = function startHunting() {
   gameCanvas.style.display = 'none';
   huntWrapper.style.display = 'flex';
 
-  let deerList = Array.from({ length: 3 }, (_, i) => ({
-    x: 640 + i * 200,
-    y: 180 + Math.random() * 80,
-    width: 30,
-    height: 20,
-    speed: 2 + Math.random() * 1.5,
-    hit: false
-  }));
+  let deerList = [];
+
+  for (let i = 0; i < 5; i++) {
+    deerList.push({
+      x: 640 + i * 150,
+      y: 180 + Math.random() * 80,
+      width: 30,
+      height: 20,
+      speed: 1.5 + Math.random() * 1.5,
+      hit: false,
+      type: Math.random() < 0.7 ? 'buck' : 'doe' // More bucks!
+    });
+  }
+
+  // Add a bear 25% of the time
+  if (Math.random() < 0.25) {
+    deerList.push({
+      x: 640 + Math.random() * 300,
+      y: 200 + Math.random() * 60,
+      width: 50,
+      height: 40,
+      speed: 1.2,
+      hit: false,
+      type: 'bear'
+    });
+  }
 
   let crosshair = { x: 320, y: 200 };
   let ammoUsed = 0;
   let hits = 0;
   const ammoLimit = 5;
 
+  let bucksShot = 0;
+  let doesShot = 0;
+  let bearsShot = 0;
+  let foodGained = 0;
+
+  function drawDeerPixel(animal) {
+    const baseX = Math.floor(animal.x);
+    const baseY = Math.floor(animal.y);
+    let px, scale;
+
+    if (animal.type === 'bear') {
+      px = 5;
+      scale = 3;
+
+      hctx.fillStyle = '#4B3621';
+      hctx.fillRect(baseX, baseY, px * 5 * scale, px * 3 * scale);
+      hctx.fillRect(baseX + px, baseY + px * 3 * scale, px * scale, px * scale);
+      hctx.fillRect(baseX + px * 4 * scale, baseY + px * 3 * scale, px * scale, px * scale);
+      hctx.fillRect(baseX - px * 2 * scale, baseY, px * 2 * scale, px * 2 * scale);
+
+      hctx.fillStyle = '#FFFFFF';
+      hctx.fillRect(baseX - px * 2 * scale, baseY, px, px);
+    } else {
+      px = animal.type === 'buck' ? 5 : 4;
+      scale = 2;
+
+      hctx.fillStyle = '#8B4513';
+      hctx.fillRect(baseX, baseY, px * 4 * scale, px * 2 * scale);
+      hctx.fillRect(baseX + px, baseY + px * 2 * scale, px * scale, px * scale);
+      hctx.fillRect(baseX + px * 3 * scale, baseY + px * 2 * scale, px * scale, px * scale);
+      hctx.fillRect(baseX - px * 2 * scale, baseY, px * 2 * scale, px * 2 * scale);
+
+      if (animal.type === 'buck') {
+        hctx.fillStyle = '#D2B48C';
+        hctx.fillRect(baseX - px * 3 * scale, baseY - px * scale, px * scale, px * scale);
+        hctx.fillRect(baseX - px, baseY - px * scale, px * scale, px * scale);
+        hctx.fillRect(baseX - px * 4 * scale, baseY - px * 2 * scale, px * scale, px * scale);
+        hctx.fillRect(baseX, baseY - px * 2 * scale, px * scale, px * scale);
+      }
+    }
+
+    if (animal.hit) {
+      hctx.fillStyle = '#FF0000';
+      hctx.font = 'bold 14px monospace';
+      hctx.fillText('💀', baseX, baseY - 5);
+    }
+  }
+
   function drawScene() {
     hctx.clearRect(0, 0, 640, 400);
     hctx.fillStyle = '#224422';
     hctx.fillRect(0, 0, 640, 400);
 
-    deerList.forEach(deer => {
-      if (!deer.hit) {
-        hctx.fillStyle = '#8B4513';
-        hctx.beginPath();
-        hctx.ellipse(deer.x, deer.y, deer.width / 2, deer.height / 2, 0, 0, Math.PI * 2);
-        hctx.fill();
-      }
+    deerList.forEach(animal => {
+      drawDeerPixel(animal);
     });
 
     hctx.strokeStyle = '#FF4444';
@@ -435,23 +500,52 @@ window.startHunting = function startHunting() {
     ammoUsed++;
     let hit = false;
 
-    deerList.forEach(deer => {
-      if (!deer.hit &&
-          crosshair.x >= deer.x - deer.width / 2 &&
-          crosshair.x <= deer.x + deer.width / 2 &&
-          crosshair.y >= deer.y - deer.height / 2 &&
-          crosshair.y <= deer.y + deer.height / 2) {
-        deer.hit = true;
-        hit = true;
-        hits++;
-        playSound('death');
-        state.supplies.food += 50;
+    deerList.forEach(animal => {
+      if (!animal.hit) {
+        let px, scale;
+        if (animal.type === 'bear') {
+          px = 5;
+          scale = 3;
+        } else {
+          px = animal.type === 'buck' ? 5 : 4;
+          scale = 2;
+        }
+
+        const bodyWidth = px * 4 * scale;
+        const bodyHeight = (px * 3 + 1) * scale;
+        const hitboxX = animal.x;
+        const hitboxY = animal.y;
+
+        const inX = crosshair.x >= hitboxX && crosshair.x <= hitboxX + bodyWidth;
+        const inY = crosshair.y >= hitboxY && crosshair.y <= hitboxY + bodyHeight;
+
+        if (inX && inY) {
+          animal.hit = true;
+          hit = true;
+          hits++;
+          playSound('death');
+
+          if (animal.type === 'bear') {
+            state.supplies.food += 150;
+            foodGained += 150;
+            bearsShot++;
+            alert("🐻 You shot a bear! +150 lbs of food!");
+          } else if (animal.type === 'buck') {
+            state.supplies.food += 80;
+            foodGained += 80;
+            bucksShot++;
+          } else {
+            state.supplies.food += 50;
+            foodGained += 50;
+            doesShot++;
+          }
+        }
       }
     });
 
-    if (!hit) {
-      console.log('Missed!');
-    }
+    if (!hit) console.log('Missed!');
+
+    updatePartyStatus();
 
     if (ammoUsed >= ammoLimit || hits === deerList.length) {
       setTimeout(endHunting, 800);
@@ -459,12 +553,12 @@ window.startHunting = function startHunting() {
   }
 
   function moveDeer() {
-    deerList.forEach(deer => {
-      if (!deer.hit) {
-        deer.x -= deer.speed;
-        if (deer.x < -deer.width) {
-          deer.x = 640 + Math.random() * 100;
-          deer.y = 180 + Math.random() * 80;
+    deerList.forEach(animal => {
+      if (!animal.hit) {
+        animal.x -= animal.speed;
+        if (animal.x < -animal.width) {
+          animal.x = 640 + Math.random() * 100;
+          animal.y = 180 + Math.random() * 80;
         }
       }
     });
@@ -501,6 +595,12 @@ window.startHunting = function startHunting() {
     gameCanvas.style.display = 'block';
     updatePartyStatus();
     localStorage.setItem('pixelTrailState', JSON.stringify(state));
+
+    alert(`🏹 Hunt Summary:
+Bucks: ${bucksShot}
+Does: ${doesShot}
+Bears: ${bearsShot}
+Total Food Gained: ${foodGained} lbs`);
   }
 
   document.addEventListener('keydown', moveCrosshair);
@@ -508,3 +608,4 @@ window.startHunting = function startHunting() {
   huntCanvas.addEventListener('click', mouseClick);
   moveDeer();
 };
+
